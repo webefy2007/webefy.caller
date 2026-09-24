@@ -1,43 +1,61 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Webefy CRM</title><link rel="stylesheet" href="/style.css"></head>
-<body>
-<div class="topbar"><span>Webefy CRM</span><button class="btn btn-sm" onclick="logout()">Logout</button></div>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Webefy CRM - Pro</title>
+<style>
+body{font-family:system-ui;background:#f6f7fb;margin:0}.topbar{background:#111827;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}.container{max-width:900px;margin:20px auto;padding:0 16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}.input{padding:10px 12px;border:1px solid #ddd;border-radius:8px;width:100%;margin:6px 0}.flex{display:flex;gap:8px;flex-wrap:wrap}.btn{background:#111827;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}.btn-sm{padding:6px 10px;font-size:12px}.btn-danger{background:#ef4444}.btn-green{background:#10b981}.table{width:100%;border-collapse:collapse}.table th{text-align:left;color:#6b7280;font-size:12px;padding:8px}.table td{padding:12px 8px;border-top:1px solid #f3f4f6;font-size:14px}.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}.badge-new{background:#dbeafe;color:#1e40af}.badge-callback{background:#fef3c7;color:#92400e}.badge-won{background:#d1fae5;color:#065f46}.badge-lost{background:#fee2e2;color:#991b1b}a{color:#2563eb;text-decoration:none}
+</style>
+</head><body>
+<div class="topbar"><b>Webefy CRM Pro</b><button class="btn btn-sm" onclick="logout()">Logout</button></div>
 <div class="container">
 <div class="card">
-<h3>Add New Lead</h3>
+<h3 style="margin-top:0">Add New Lead</h3>
 <div class="flex">
-<input id="name" class="input" placeholder="Name">
-<input id="phone" class="input" placeholder="Phone">
-<input id="status" class="input" placeholder="Status (New/Callback/Won)" value="New">
-<button class="btn" onclick="addLead()">Add</button>
+<input id="name" class="input" placeholder="Name" style="flex:2">
+<input id="phone" class="input" placeholder="Phone 10 digit" style="flex:1">
 </div>
+<div class="flex">
+<select id="status" class="input" style="flex:1"><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select>
+<input id="notes" class="input" placeholder="Note: call tomorrow 5pm" style="flex:2">
+<button class="btn" onclick="addLead()">Add Lead</button>
+</div>
+<input id="search" class="input" placeholder="Search name or phone..." onkeyup="load()">
 </div>
 <div class="card">
-<h3>Leads</h3>
-<table class="table"><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Action</th></tr></thead><tbody id="leadsBody"></tbody></table>
+<h3 style="margin-top:0">Leads - <span id="count">0</span></h3>
+<table class="table"><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Note</th><th>Action</th></tr></thead><tbody id="leadsBody"></tbody></table>
 </div>
 </div>
 <script>
 if(!localStorage.getItem('token')) location.href='/';
-function logout(){ localStorage.removeItem('token'); location.href='/'; }
+function logout(){localStorage.removeItem('token');location.href='/';}
+let allLeads=[];
 async function load(){
-  const res = await fetch('/api/clients', {headers:{Authorization:'Bearer '+localStorage.getItem('token')}});
-  const data = await res.json();
-  const body = document.getElementById('leadsBody');
-  body.innerHTML = '';
-  data.forEach(c=>{
-    body.innerHTML+=`<tr><td>${c.name}</td><td>${c.phone}</td><td><span class="badge badge-${c.status?.toLowerCase()}">${c.status}</span></td><td><button class="btn btn-sm btn-danger" onclick="del('${c.id}')">Delete</button></td></tr>`;
+  const q=document.getElementById('search').value.toLowerCase();
+  const res=await fetch('/api/clients',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}});
+  allLeads=await res.json();
+  let filtered=allLeads.filter(c=>!q || c.name?.toLowerCase().includes(q) || c.phone?.includes(q));
+  document.getElementById('count').innerText=filtered.length;
+  const body=document.getElementById('leadsBody');
+  body.innerHTML='';
+  filtered.forEach(c=>{
+    const s=(c.status||'New').toLowerCase();
+    body.innerHTML+=`<tr>
+      <td><b>${c.name}</b></td>
+      <td><a href="tel:${c.phone}">${c.phone} 📞</a></td>
+      <td><span class="badge badge-${s}">${c.status}</span><br><select onchange="updateStatus('${c.id}',this.value)" style="margin-top:6px;font-size:11px"><option>Change...</option><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select></td>
+      <td style="max-width:150px">${c.notes||''}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="del('${c.id}')">Delete</button></td>
+    </tr>`;
   });
 }
 async function addLead(){
-  const name=document.getElementById('name').value, phone=document.getElementById('phone').value, status=document.getElementById('status').value;
-  await fetch('/api/clients', {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+localStorage.getItem('token')}, body:JSON.stringify({name,phone,status})});
+  const name=document.getElementById('name').value, phone=document.getElementById('phone').value, status=document.getElementById('status').value, notes=document.getElementById('notes').value;
+  if(!name||!phone) return alert('Enter name phone');
+  await fetch('/api/clients',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({name,phone,status,notes})});
+  document.getElementById('name').value='';document.getElementById('phone').value='';document.getElementById('notes').value='';
   load();
 }
-async function del(id){
-  await fetch('/api/clients/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+localStorage.getItem('token')}});
-  load();
-}
+async function del(id){ if(!confirm('Delete?')) return; await fetch('/api/clients/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); load();}
+async function updateStatus(id,newStatus){ if(newStatus==='Change...') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({status:newStatus})}); load();}
 load();
 </script>
 </body></html>
