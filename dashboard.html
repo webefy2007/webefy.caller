@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dashboard - Webefy CRM</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<div class="topbar">Webefy CRM <button class="btn btn-sm" onclick="logout()">Logout</button></div>
+<div class="container">
+  <div class="card"><h2>Welcome! You are logged in.</h2><p>Token: <span id="tokenShow"></span></p></div>
+  <div class="card"><h3>Leads</h3><div id="leads"></div></div>
+</div>
+<script>
+if(!localStorage.getItem('token')) window.location.href='/';
+document.getElementById('tokenShow').innerText = localStorage.getItem('token').substring(0,20)+'...';
+function logout(){ localStorage.removeItem('token'); window.location.href='/'; }
+// you can add fetch leads here later
+async function loadLeads(){
+  try{
+    const res = await fetch('/api/leads', { headers: { 'Authorization': 'Bearer '+localStorage.getItem('token') } });
+    const data = await res.json();
+    document.getElementById('leads').innerText = JSON.stringify(data, null, 2);
+  }catch(e){ document.getElementById('leads').innerText='Error loading: '+e.message }
+}
+loadLeads();
+</script>
+</body></html>
