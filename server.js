@@ -24,34 +24,41 @@ function auth(req,res,next){
   catch(e){ return res.status(401).json({error:'Invalid token'}); }
 }
 
-// --- LOGIN - FOR ALL USERS ---
 app.post('/api/login', async (req,res)=>{
   const {email,password} = req.body;
   try{
     const {rows} = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
     if(!rows.length) return res.status(401).json({error:'User not found'});
     const user = rows[0];
-    const ok = user.password.startsWith('$2a$') || user.password.startsWith('$2b$')? await bcrypt.compare(password, user.password) : user.password===password;
+    const ok = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') ? await bcrypt.compare(password, user.password) : user.password===password;
     if(!ok) return res.status(401).json({error:'Wrong password'});
     const token = jwt.sign({id:user.id, email:user.email, role:user.role||'caller'}, JWT_SECRET, {expiresIn:'7d'});
     res.json({token, role:user.role||'caller', email:user.email});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// --- CLIENTS / LEADS ---
+// SYSTEM B - FILTER BY ROLE
 app.get('/api/clients', auth, async (req,res)=>{
   try{
-    const {rows} = await pool.query('SELECT * FROM clients ORDER BY created_at DESC');
+    let q = 'SELECT * FROM clients ORDER BY created_at DESC';
+    let p = [];
+    if(req.user.role !== 'admin'){
+      q = 'SELECT * FROM clients WHERE assigned_to=$1 ORDER BY created_at DESC';
+      p = [req.user.email];
+    }
+    const {rows} = await pool.query(q, p);
     res.json(rows);
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/clients', auth, async (req,res)=>{
-  const {name, phone, status, notes} = req.body;
+  const {name, phone, status, notes, assigned_to} = req.body;
   try{
+    // If admin assigns to someone, use that. If caller adds, assign to himself.
+    let owner = req.user.role==='admin' && assigned_to ? assigned_to : req.user.email;
     const {rows} = await pool.query(
       'INSERT INTO clients (name, phone, status, notes, assigned_to) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [name, phone, status||'New', notes||'', req.user.email]
+      [name, phone, status||'New', notes||'', owner]
     );
     res.json(rows[0]);
   }catch(e){ res.status(500).json({error:e.message}); }
@@ -59,8 +66,12 @@ app.post('/api/clients', auth, async (req,res)=>{
 
 app.patch('/api/clients/:id', auth, async (req,res)=>{
   try{
-    const {status, notes} = req.body;
-    await pool.query('UPDATE clients SET status=COALESCE($1,status), notes=COALESCE($2,notes) WHERE id=$3', [status, notes, req.params.id]);
+    const {status, notes, assigned_to} = req.body;
+    if(assigned_to && req.user.role!=='admin') return res.status(403).json({error:'Only admin can re-assign'});
+    await pool.query(
+      'UPDATE clients SET status=COALESCE($1,status), notes=COALESCE($2,notes), assigned_to=COALESCE($3,assigned_to) WHERE id=$4',
+      [status, notes, assigned_to, req.params.id]
+    );
     res.json({ok:true});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -70,6 +81,12 @@ app.delete('/api/clients/:id', auth, async (req,res)=>{
     await pool.query('DELETE FROM clients WHERE id=$1', [req.params.id]);
     res.json({ok:true});
   }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/users', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json([]);
+  const {rows} = await pool.query("SELECT email FROM users WHERE role='caller'");
+  res.json(rows);
 });
 
 app.get('*', (req,res)=> res.sendFile(path.join(__dirname,'public','index.html')));
