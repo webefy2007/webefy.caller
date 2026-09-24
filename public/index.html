@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Webefy CRM</title>
-<link rel="stylesheet" href="style.css">
-</head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Webefy CRM</title><link rel="stylesheet" href="/style.css"></head>
 <body>
-<div class="topbar">
-  <div><b>Webefy CRM</b></div>
-  <div id="userBox"></div>
+<div class="topbar">Webefy CRM</div>
+<div class="container">
+  <div class="card">
+    <h1>Webefy CRM Login</h1>
+    <input id="email" type="email" value="admin@webefy.com" placeholder="Email" />
+    <input id="password" type="password" value="admin123" placeholder="Password" />
+    <button id="loginBtn">Login</button>
+    <p id="msg"></p>
+    <small>Default admin: admin@webefy.com / admin123</small>
+  </div>
 </div>
-<div id="app"><div class="card">Loading...</div></div>
-<script type="module" src="app.js"></script>
-</body>
-</html>
+<script src="/app.js"></script>
+</body></html>
