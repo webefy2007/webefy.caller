@@ -1,61 +1,26 @@
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Webefy CRM - Pro</title>
-<style>
-body{font-family:system-ui;background:#f6f7fb;margin:0}.topbar{background:#111827;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}.container{max-width:900px;margin:20px auto;padding:0 16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}.input{padding:10px 12px;border:1px solid #ddd;border-radius:8px;width:100%;margin:6px 0}.flex{display:flex;gap:8px;flex-wrap:wrap}.btn{background:#111827;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}.btn-sm{padding:6px 10px;font-size:12px}.btn-danger{background:#ef4444}.btn-green{background:#10b981}.table{width:100%;border-collapse:collapse}.table th{text-align:left;color:#6b7280;font-size:12px;padding:8px}.table td{padding:12px 8px;border-top:1px solid #f3f4f6;font-size:14px}.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}.badge-new{background:#dbeafe;color:#1e40af}.badge-callback{background:#fef3c7;color:#92400e}.badge-won{background:#d1fae5;color:#065f46}.badge-lost{background:#fee2e2;color:#991b1b}a{color:#2563eb;text-decoration:none}
-</style>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>CRM B</title>
+<style>body{font-family:system-ui;background:#f6f7fb;margin:0}.topbar{background:#111827;color:#fff;padding:14px 20px;display:flex;justify-content:space-between}.container{max-width:950px;margin:20px auto;padding:0 16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}.input{padding:10px;border:1px solid #ddd;border-radius:8px;width:100%;margin:6px 0}.flex{display:flex;gap:8px;flex-wrap:wrap}.btn{background:#111827;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}.btn-danger{background:#ef4444}.table{width:100%;border-collapse:collapse}.table th{font-size:11px;color:#6b7280;text-align:left;padding:8px}.table td{padding:10px 8px;border-top:1px solid #eee;font-size:13px}.badge{padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}.badge-new{background:#dbeafe;color:#1e40af}.badge-callback{background:#fef3c7;color:#92400e}.badge-won{background:#d1fae5;color:#065f46}.badge-lost{background:#fee2e2;color:#991b1b}</style>
 </head><body>
-<div class="topbar"><b>Webefy CRM Pro</b><button class="btn btn-sm" onclick="logout()">Logout</button></div>
+<div class="topbar"><b>Webefy CRM <span id="roleTag"></span></b><span><small id="emailTag"></small> <button onclick="logout()" style="margin-left:10px">Logout</button></span></div>
 <div class="container">
-<div class="card">
-<h3 style="margin-top:0">Add New Lead</h3>
-<div class="flex">
-<input id="name" class="input" placeholder="Name" style="flex:2">
-<input id="phone" class="input" placeholder="Phone 10 digit" style="flex:1">
-</div>
-<div class="flex">
-<select id="status" class="input" style="flex:1"><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select>
-<input id="notes" class="input" placeholder="Note: call tomorrow 5pm" style="flex:2">
-<button class="btn" onclick="addLead()">Add Lead</button>
-</div>
-<input id="search" class="input" placeholder="Search name or phone..." onkeyup="load()">
-</div>
-<div class="card">
-<h3 style="margin-top:0">Leads - <span id="count">0</span></h3>
-<table class="table"><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Note</th><th>Action</th></tr></thead><tbody id="leadsBody"></tbody></table>
-</div>
+<div class="card" id="addCard"><h3 style="margin:0 0 8px">Add Lead</h3>
+<div class="flex"><input id="name" class="input" placeholder="Name" style="flex:2"><input id="phone" class="input" placeholder="Phone" style="flex:1"></div>
+<div class="flex"><select id="status" class="input" style="flex:1"><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select>
+<select id="assign" class="input" style="flex:1;display:none"></select>
+<input id="notes" class="input" placeholder="Note" style="flex:2"><button class="btn" onclick="addLead()">Add</button></div>
+<input id="search" class="input" placeholder="Search..." onkeyup="load()"></div>
+<div class="card"><h3>Leads - <span id="count">0</span></h3><table class="table"><thead><tr><th>Name</th><th>Phone</th><th>Status</th><th>Assigned</th><th>Note</th><th>Action</th></tr></thead><tbody id="body"></tbody></table></div>
 </div>
 <script>
 if(!localStorage.getItem('token')) location.href='/';
-function logout(){localStorage.removeItem('token');location.href='/';}
-let allLeads=[];
-async function load(){
-  const q=document.getElementById('search').value.toLowerCase();
-  const res=await fetch('/api/clients',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}});
-  allLeads=await res.json();
-  let filtered=allLeads.filter(c=>!q || c.name?.toLowerCase().includes(q) || c.phone?.includes(q));
-  document.getElementById('count').innerText=filtered.length;
-  const body=document.getElementById('leadsBody');
-  body.innerHTML='';
-  filtered.forEach(c=>{
-    const s=(c.status||'New').toLowerCase();
-    body.innerHTML+=`<tr>
-      <td><b>${c.name}</b></td>
-      <td><a href="tel:${c.phone}">${c.phone} 📞</a></td>
-      <td><span class="badge badge-${s}">${c.status}</span><br><select onchange="updateStatus('${c.id}',this.value)" style="margin-top:6px;font-size:11px"><option>Change...</option><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select></td>
-      <td style="max-width:150px">${c.notes||''}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="del('${c.id}')">Delete</button></td>
-    </tr>`;
-  });
-}
-async function addLead(){
-  const name=document.getElementById('name').value, phone=document.getElementById('phone').value, status=document.getElementById('status').value, notes=document.getElementById('notes').value;
-  if(!name||!phone) return alert('Enter name phone');
-  await fetch('/api/clients',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({name,phone,status,notes})});
-  document.getElementById('name').value='';document.getElementById('phone').value='';document.getElementById('notes').value='';
-  load();
-}
-async function del(id){ if(!confirm('Delete?')) return; await fetch('/api/clients/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); load();}
-async function updateStatus(id,newStatus){ if(newStatus==='Change...') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({status:newStatus})}); load();}
-load();
-</script>
-</body></html>
+document.getElementById('roleTag').innerText='('+localStorage.getItem('role')+')';
+document.getElementById('emailTag').innerText=localStorage.getItem('email');
+function logout(){localStorage.clear();location.href='/';}
+async function loadUsers(){ if(localStorage.getItem('role')!=='admin') return; const r=await fetch('/api/users',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); const u=await r.json(); const s=document.getElementById('assign'); s.style.display='block'; s.innerHTML='<option value="">Assign to...</option>'+u.map(x=>`<option value="${x.email}">${x.email}</option>`).join(''); }
+let all=[]; async function load(){ const q=document.getElementById('search').value.toLowerCase(); const res=await fetch('/api/clients',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); all=await res.json(); let f=all.filter(c=>!q||c.name?.toLowerCase().includes(q)||c.phone?.includes(q)); document.getElementById('count').innerText=f.length; document.getElementById('body').innerHTML=f.map(c=>`<tr><td><b>${c.name}</b></td><td><a href="tel:${c.phone}">${c.phone} 📞</a></td><td><span class="badge badge-${(c.status||'New').toLowerCase()}">${c.status}</span><br><select onchange="upd('${c.id}',this.value)" style="font-size:11px;margin-top:4px"><option>Change</option><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select></td><td><small>${c.assigned_to||''}</small>${localStorage.getItem('role')==='admin'?`<br><select onchange="reassign('${c.id}',this.value)" style="font-size:10px"><option>Re-assign</option>${document.getElementById('assign').innerHTML}</select>`:''}</td><td>${c.notes||''}</td><td><button class="btn btn-danger" style="padding:5px 8px;font-size:11px" onclick="del('${c.id}')">Delete</button></td></tr>`).join(''); }
+async function addLead(){ const name=document.getElementById('name').value, phone=document.getElementById('phone').value, status=document.getElementById('status').value, notes=document.getElementById('notes').value, assigned_to=document.getElementById('assign').value; if(!name||!phone) return alert('Name Phone needed'); await fetch('/api/clients',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({name,phone,status,notes,assigned_to})}); document.getElementById('name').value='';document.getElementById('phone').value='';document.getElementById('notes').value=''; load(); }
+async function del(id){ if(!confirm('Delete?')) return; await fetch('/api/clients/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); load(); }
+async function upd(id,s){ if(s==='Change') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({status:s})}); load(); }
+async function reassign(id,email){ if(!email||email==='Assign to...'||email==='Re-assign') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({assigned_to:email})}); load(); }
+loadUsers().then(load);
+</script></body></html>
