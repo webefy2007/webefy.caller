@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><head><title>Caller Dashboard</title></head>
+<body>
+<h2>My Leads</h2>
+<div id="leads"></div>
+<script>
+const email = localStorage.getItem('user_email') || 'caller1@webefy.com';
+fetch('/api/leads/'+email).then(r=>r.json()).then(data=>{
+  let html='';
+  data.forEach(l=>{
+    html+= `<div style="border:1px solid #ccc;padding:10px;margin:5px">
+    <b>${l.business_name}</b> - ${l.phone} - ${l.call_status}
+    <br><a href="tel:${l.phone}"><button>Call</button></a>
+    <select onchange="update('${l.lead_id}',this.value)"><option>Not Called</option><option>Called</option><option>Interested</option><option>Not Interested</option><option>Sale</option></select>
+    </div>`;
+  });
+  document.getElementById('leads').innerHTML=html;
+});
+function update(lead_id, status){
+  fetch('/api/update-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id, call_status:status, caller_email:email})}).then(()=>alert('Updated: '+status));
+}
+</script>
+</body></html>
