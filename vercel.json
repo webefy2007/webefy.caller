@@ -1,5 +1,9 @@
 {
-  "version": 2,
-  "builds": [{ "src": "server.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "/server.js" }]
+  "name": "webefy-caller",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.39.0",
+    "cors": "^2.8.5"
+  }
 }
