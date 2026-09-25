@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const { Pool } = pg;
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit:'5mb'}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -37,7 +37,6 @@ app.post('/api/login', async (req,res)=>{
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// SYSTEM B - FILTER BY ROLE
 app.get('/api/clients', auth, async (req,res)=>{
   try{
     let q = 'SELECT * FROM clients ORDER BY created_at DESC';
@@ -54,13 +53,30 @@ app.get('/api/clients', auth, async (req,res)=>{
 app.post('/api/clients', auth, async (req,res)=>{
   const {name, phone, status, notes, assigned_to} = req.body;
   try{
-    // If admin assigns to someone, use that. If caller adds, assign to himself.
     let owner = req.user.role==='admin' && assigned_to ? assigned_to : req.user.email;
     const {rows} = await pool.query(
       'INSERT INTO clients (name, phone, status, notes, assigned_to) VALUES ($1,$2,$3,$4,$5) RETURNING *',
       [name, phone, status||'New', notes||'', owner]
     );
     res.json(rows[0]);
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/clients/import', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'Only admin can import'});
+  const {clients} = req.body;
+  if(!clients?.length) return res.status(400).json({error:'No data'});
+  try{
+    let inserted = 0;
+    for(let c of clients){
+      if(!c.phone) continue;
+      await pool.query(
+        'INSERT INTO clients (name, phone, status, notes, assigned_to) VALUES ($1,$2,$3,$4,$5)',
+        [c.name||'No Name', c.phone, c.status||'New', c.notes||'', c.assigned_to||req.user.email]
+      );
+      inserted++;
+    }
+    res.json({ok:true, inserted});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
