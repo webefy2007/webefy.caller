@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head><title>Admin - Import Leads</title></head>
+<body>
+<h2>Bulk CSV Import - Admin Only</h2>
+<input type="file" id="csv" accept=".csv">
+<select id="assign">
+  <option value="caller1@webefy.com">Caller 1</option>
+  <option value="caller2@webefy.com">Caller 2</option>
+</select>
+<button onclick="importCSV()">Import 1000 Leads</button>
+<div id="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+function importCSV(){
+  const file = document.getElementById('csv').files[0];
+  const assigned_to = document.getElementById('assign').value;
+  Papa.parse(file, {
+    header:true,
+    complete: async function(results){
+      const clients = results.data.filter(r=>r.phone).map(r=>({name:r.business_name||r.name, phone:r.phone}));
+      document.getElementById('status').innerText = 'Importing '+clients.length+' leads...';
+      const res = await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clients, assigned_to})});
+      const data = await res.json();
+      document.getElementById('status').innerText = 'Done! Imported: '+data.imported+' Batch: '+data.batch;
+    }
+  });
+}
+</script>
+</body></html>
