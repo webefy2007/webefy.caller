@@ -1,16 +1,16 @@
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Webefy CRM</title><link rel="stylesheet" href="/style.css"></head>
-<body>
-<div class="topbar">Webefy CRM</div>
-<div class="container">
-  <div class="card">
-    <h1>Webefy CRM Login</h1>
-    <input id="email" type="email" value="admin@webefy.com" placeholder="Email" />
-    <input id="password" type="password" value="admin123" placeholder="Password" />
-    <button id="loginBtn">Login</button>
-    <p id="msg"></p>
-    <small>Default admin: admin@webefy.com / admin123</small>
-  </div>
-</div>
-<script src="/app.js"></script>
-</body></html>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login</title>
+<style>body{font-family:system-ui;background:#f6f7fb;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.card{background:#fff;padding:24px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.1);width:320px}input{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin:8px 0;box-sizing:border-box}button{width:100%;padding:12px;background:#111827;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:8px}</style>
+</head><body><div class="card"><h2>Webefy Login</h2><input id="email" placeholder="Email"><input id="pass" type="password" placeholder="Password"><button onclick="login()">Login</button><p id="msg" style="color:red;font-size:12px"></p></div>
+<script>
+async function login(){
+ const email=document.getElementById('email').value.trim();
+ const password=document.getElementById('pass').value.trim();
+ const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+ const d=await r.json();
+ if(!r.ok){ document.getElementById('msg').innerText=d.error; return; }
+ localStorage.setItem('token', d.token);
+ localStorage.setItem('role', d.role);
+ localStorage.setItem('email', d.email);
+ location.href='/dashboard.html';
+}
+</script></body></html>
