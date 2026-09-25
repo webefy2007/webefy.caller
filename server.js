@@ -30,7 +30,7 @@ app.post('/api/login', async (req,res)=>{
     const {rows} = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
     if(!rows.length) return res.status(401).json({error:'User not found'});
     const user = rows[0];
-    const ok = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') ? await bcrypt.compare(password, user.password) : user.password===password;
+    const ok = user.password.startsWith('$2a$') || user.password.startsWith('$2b$')? await bcrypt.compare(password, user.password) : user.password===password;
     if(!ok) return res.status(401).json({error:'Wrong password'});
     const token = jwt.sign({id:user.id, email:user.email, role:user.role||'caller'}, JWT_SECRET, {expiresIn:'7d'});
     res.json({token, role:user.role||'caller', email:user.email});
@@ -41,7 +41,7 @@ app.get('/api/clients', auth, async (req,res)=>{
   try{
     let q = 'SELECT * FROM clients ORDER BY created_at DESC';
     let p = [];
-    if(req.user.role !== 'admin'){
+    if(req.user.role!== 'admin'){
       q = 'SELECT * FROM clients WHERE assigned_to=$1 ORDER BY created_at DESC';
       p = [req.user.email];
     }
@@ -53,7 +53,7 @@ app.get('/api/clients', auth, async (req,res)=>{
 app.post('/api/clients', auth, async (req,res)=>{
   const {name, phone, status, notes, assigned_to} = req.body;
   try{
-    let owner = req.user.role==='admin' && assigned_to ? assigned_to : req.user.email;
+    let owner = req.user.role==='admin' && assigned_to? assigned_to : req.user.email;
     const {rows} = await pool.query(
       'INSERT INTO clients (name, phone, status, notes, assigned_to) VALUES ($1,$2,$3,$4,$5) RETURNING *',
       [name, phone, status||'New', notes||'', owner]
@@ -63,7 +63,7 @@ app.post('/api/clients', auth, async (req,res)=>{
 });
 
 app.post('/api/clients/import', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'Only admin can import'});
+  if(req.user.role!=='admin') return res.status(403).json({error:'Only admin'});
   const {clients} = req.body;
   if(!clients?.length) return res.status(400).json({error:'No data'});
   try{
@@ -71,8 +71,8 @@ app.post('/api/clients/import', auth, async (req,res)=>{
     for(let c of clients){
       if(!c.phone) continue;
       await pool.query(
-        'INSERT INTO clients (name, phone, status, notes, assigned_to) VALUES ($1,$2,$3,$4,$5)',
-        [c.name||'No Name', c.phone, c.status||'New', c.notes||'', c.assigned_to||req.user.email]
+        'INSERT INTO clients (name, phone, status, notes, assigned_to, sale_amount, payment_received, commission, payment_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [c.name||'No Name', c.phone, c.status||'New', c.notes||'', c.assigned_to||req.user.email, c.sale_amount||0, c.payment_received||0, c.commission||0, c.payment_status||'Pending']
       );
       inserted++;
     }
@@ -82,21 +82,22 @@ app.post('/api/clients/import', auth, async (req,res)=>{
 
 app.patch('/api/clients/:id', auth, async (req,res)=>{
   try{
-    const {status, notes, assigned_to} = req.body;
+    const {status, notes, assigned_to, sale_amount, payment_received, commission, payment_status} = req.body;
     if(assigned_to && req.user.role!=='admin') return res.status(403).json({error:'Only admin can re-assign'});
     await pool.query(
-      'UPDATE clients SET status=COALESCE($1,status), notes=COALESCE($2,notes), assigned_to=COALESCE($3,assigned_to) WHERE id=$4',
-      [status, notes, assigned_to, req.params.id]
+      `UPDATE clients SET status=COALESCE($1,status), notes=COALESCE($2,notes), assigned_to=COALESCE($3,assigned_to),
+       sale_amount=COALESCE($4,sale_amount), payment_received=COALESCE($5,payment_received), commission=COALESCE($6,commission), payment_status=COALESCE($7,payment_status)
+       WHERE id=$8`,
+      [status, notes, assigned_to, sale_amount, payment_received, commission, payment_status, req.params.id]
     );
     res.json({ok:true});
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.delete('/api/clients/:id', auth, async (req,res)=>{
-  try{
-    await pool.query('DELETE FROM clients WHERE id=$1', [req.params.id]);
-    res.json({ok:true});
-  }catch(e){ res.status(500).json({error:e.message}); }
+  if(req.user.role==='caller') return res.status(403).json({error:'Caller cannot delete'});
+  try{ await pool.query('DELETE FROM clients WHERE id=$1', [req.params.id]); res.json({ok:true}); }
+  catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/users', auth, async (req,res)=>{
