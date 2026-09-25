@@ -3,6 +3,7 @@
 </head><body>
 <div class="topbar"><b>Webefy CRM <span id="roleTag"></span></b><span><small id="emailTag"></small> <button onclick="logout()" style="margin-left:10px">Logout</button></span></div>
 <div class="container">
+<div class="card" id="csvCard" style="display:none;border:2px dashed #111"><h3 style="margin:0 0 8px">📥 Bulk CSV Import (Admin Only)</h3><p style="font-size:11px;color:#666">Format: name,phone - first line must be header</p><input type="file" id="csvFile" accept=".csv" class="input"><div class="flex"><select id="csvAssign" class="input" style="flex:1"></select><button class="btn" onclick="importCSV()">Import CSV</button></div><span id="csvStatus" style="font-size:12px"></span></div>
 <div class="card" id="addCard"><h3 style="margin:0 0 8px">Add Lead</h3>
 <div class="flex"><input id="name" class="input" placeholder="Name" style="flex:2"><input id="phone" class="input" placeholder="Phone" style="flex:1"></div>
 <div class="flex"><select id="status" class="input" style="flex:1"><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select>
@@ -16,11 +17,34 @@ if(!localStorage.getItem('token')) location.href='/';
 document.getElementById('roleTag').innerText='('+localStorage.getItem('role')+')';
 document.getElementById('emailTag').innerText=localStorage.getItem('email');
 function logout(){localStorage.clear();location.href='/';}
-async function loadUsers(){ if(localStorage.getItem('role')!=='admin') return; const r=await fetch('/api/users',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); const u=await r.json(); const s=document.getElementById('assign'); s.style.display='block'; s.innerHTML='<option value="">Assign to...</option>'+u.map(x=>`<option value="${x.email}">${x.email}</option>`).join(''); }
+async function loadUsers(){ if(localStorage.getItem('role')!=='admin') return; const r=await fetch('/api/users',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); const u=await r.json(); const s=document.getElementById('assign'); const s2=document.getElementById('csvAssign'); s.style.display='block'; s.innerHTML='<option value="">Assign to...</option>'+u.map(x=>`<option value="${x.email}">${x.email}</option>`).join(''); s2.innerHTML=s.innerHTML; document.getElementById('csvCard').style.display='block'; }
 let all=[]; async function load(){ const q=document.getElementById('search').value.toLowerCase(); const res=await fetch('/api/clients',{headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); all=await res.json(); let f=all.filter(c=>!q||c.name?.toLowerCase().includes(q)||c.phone?.includes(q)); document.getElementById('count').innerText=f.length; document.getElementById('body').innerHTML=f.map(c=>`<tr><td><b>${c.name}</b></td><td><a href="tel:${c.phone}">${c.phone} 📞</a></td><td><span class="badge badge-${(c.status||'New').toLowerCase()}">${c.status}</span><br><select onchange="upd('${c.id}',this.value)" style="font-size:11px;margin-top:4px"><option>Change</option><option>New</option><option>Callback</option><option>Won</option><option>Lost</option></select></td><td><small>${c.assigned_to||''}</small>${localStorage.getItem('role')==='admin'?`<br><select onchange="reassign('${c.id}',this.value)" style="font-size:10px"><option>Re-assign</option>${document.getElementById('assign').innerHTML}</select>`:''}</td><td>${c.notes||''}</td><td><button class="btn btn-danger" style="padding:5px 8px;font-size:11px" onclick="del('${c.id}')">Delete</button></td></tr>`).join(''); }
 async function addLead(){ const name=document.getElementById('name').value, phone=document.getElementById('phone').value, status=document.getElementById('status').value, notes=document.getElementById('notes').value, assigned_to=document.getElementById('assign').value; if(!name||!phone) return alert('Name Phone needed'); await fetch('/api/clients',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({name,phone,status,notes,assigned_to})}); document.getElementById('name').value='';document.getElementById('phone').value='';document.getElementById('notes').value=''; load(); }
 async function del(id){ if(!confirm('Delete?')) return; await fetch('/api/clients/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('token')}}); load(); }
 async function upd(id,s){ if(s==='Change') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({status:s})}); load(); }
 async function reassign(id,email){ if(!email||email==='Assign to...'||email==='Re-assign') return; await fetch('/api/clients/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({assigned_to:email})}); load(); }
+async function importCSV(){
+  const file=document.getElementById('csvFile').files[0];
+  if(!file) return alert('CSV select karo');
+  const text=await file.text();
+  const lines=text.split('\n').filter(l=>l.trim());
+  let clients=[];
+  for(let i=1;i<lines.length;i++){
+    let cols=lines[i].split(',').map(s=>s.trim().replace(/"/g,''));
+    if(!cols[1]) continue;
+    if(cols[0].toLowerCase()==='name') continue;
+    clients.push({
+      name: cols[0]||'No Name',
+      phone: cols[1],
+      status: cols[2]||'New',
+      assigned_to: document.getElementById('csvAssign').value || document.getElementById('assign').value || localStorage.getItem('email')
+    });
+  }
+  document.getElementById('csvStatus').innerText='Uploading '+clients.length+'...';
+  const r=await fetch('/api/clients/import',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('token')},body:JSON.stringify({clients})});
+  const d=await r.json();
+  document.getElementById('csvStatus').innerText='✅ Imported '+d.inserted;
+  load();
+}
 loadUsers().then(load);
 </script></body></html>
